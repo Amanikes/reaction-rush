@@ -27,6 +27,14 @@ type RawAdminResults = {
   standings?: RawStanding[];
 };
 
+function toValidMs(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
 function getAdminHeaders(adminKey: string): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -76,17 +84,38 @@ export const api = {
     }).then((raw) => {
       const players = raw.players
         ? raw.players
+            .map((entry) => {
+              const totalReactionTime = toValidMs(entry.totalReactionTime);
+              if (totalReactionTime === null) {
+                return null;
+              }
+
+              return {
+                uid: entry.uid,
+                nickname: entry.nickname ?? entry.uid,
+                totalReactionTime,
+                rounds: entry.rounds ?? [],
+              };
+            })
+            .filter((entry): entry is PlayerInfo => entry !== null)
         : (raw.standings ?? [])
-            .filter((entry) => entry.totalReactionTimeMs !== null)
-            .map((entry) => ({
-              uid: entry.uid,
-              nickname: entry.nickname ?? entry.uid,
-              totalReactionTime: entry.totalReactionTimeMs ?? 0,
-              rounds: entry.rounds.map((round) => ({
-                roundNumber: round.roundNumber,
-                reactionTimeMs: round.reactionTimeMs,
-              })),
-            }));
+            .map((entry) => {
+              const totalReactionTime = toValidMs(entry.totalReactionTimeMs);
+              if (totalReactionTime === null) {
+                return null;
+              }
+
+              return {
+                uid: entry.uid,
+                nickname: entry.nickname ?? entry.uid,
+                totalReactionTime,
+                rounds: entry.rounds.map((round) => ({
+                  roundNumber: round.roundNumber,
+                  reactionTimeMs: round.reactionTimeMs,
+                })),
+              };
+            })
+            .filter((entry): entry is PlayerInfo => entry !== null);
 
       return {
         status: raw.status ?? "unknown",

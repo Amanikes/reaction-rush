@@ -13,8 +13,16 @@ const rowColors = [
   "border-game-bronze/30 bg-game-bronze/5",
 ];
 
+function sortableTotal(totalReactionTime: number): number {
+  return Number.isFinite(totalReactionTime) && totalReactionTime >= 0
+    ? totalReactionTime
+    : Number.POSITIVE_INFINITY;
+}
+
 export function Leaderboard({ players, currentUid }: Props) {
-  const sorted = [...players].sort((a, b) => a.totalReactionTime - b.totalReactionTime);
+  const sorted = [...players].sort(
+    (a, b) => sortableTotal(a.totalReactionTime) - sortableTotal(b.totalReactionTime)
+  );
 
   return (
     <div className="w-full max-w-lg space-y-2">
