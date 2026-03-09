@@ -5,12 +5,6 @@ import { useGameStore } from "@/store/gameStore";
 import { Settings, Trophy, ArrowLeft } from "lucide-react";
 import type { AdminSessionResults } from "@/types/game";
 
-function sortableTotal(totalReactionTime: number): number {
-  return Number.isFinite(totalReactionTime) && totalReactionTime >= 0
-    ? totalReactionTime
-    : Number.POSITIVE_INFINITY;
-}
-
 export function AdminScreen() {
   const { setScreen } = useGameStore();
   const [adminKey, setAdminKey] = useState(
@@ -173,13 +167,7 @@ export function AdminScreen() {
 
         {results && results.players && (
           <div className="space-y-2">
-            {[...results.players]
-              .sort(
-                (a, b) =>
-                  sortableTotal(a.totalReactionTime) -
-                  sortableTotal(b.totalReactionTime)
-              )
-              .map((player, i) => (
+            {results.players.map((player, i) => (
                 <div
                   key={player.uid}
                   className="flex items-center justify-between rounded-lg border border-border bg-card p-3"

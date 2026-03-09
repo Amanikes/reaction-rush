@@ -47,7 +47,22 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+  if (!res.ok) {
+    let message = `API error: ${res.status}`;
+    try {
+      const data = (await res.json()) as { message?: string | string[] };
+      if (Array.isArray(data.message) && data.message.length > 0) {
+        message = data.message.join(", ");
+      } else if (typeof data.message === "string" && data.message.length > 0) {
+        message = data.message;
+      }
+    } catch {
+      // Keep fallback error message when response body is not JSON.
+    }
+    throw new Error(message);
+  }
+
   return res.json();
 }
 

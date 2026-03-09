@@ -42,8 +42,8 @@ export function GamePlayScreen() {
     setCompletedPlayers, setScreen,
   } = useGameStore();
 
-  const greenTimestamp = useRef<number>(0);
   const roundRef = useRef(0);
+  const isRoundOpenRef = useRef(false);
 
   const normalizeButtons = useCallback(
     (items: IncomingButtonState[] | undefined): ButtonState[] | undefined => {
@@ -91,6 +91,7 @@ export function GamePlayScreen() {
     });
 
     socket.on("session.started", (data: { buttons?: IncomingButtonState[] }) => {
+      isRoundOpenRef.current = false;
       setStatus("Get ready!");
       setCurrentRound(0);
       const normalizedButtons = normalizeButtons(data?.buttons);
@@ -100,7 +101,7 @@ export function GamePlayScreen() {
     });
 
     socket.on("button.green", (data: { buttonId: number; roundNumber: number; buttons?: IncomingButtonState[] }) => {
-      greenTimestamp.current = Date.now();
+      isRoundOpenRef.current = true;
       roundRef.current = data.roundNumber;
       setCurrentRound(data.roundNumber);
       setClickedThisRound(false);
@@ -122,6 +123,7 @@ export function GamePlayScreen() {
     });
 
     socket.on("button.red", (data: { buttons?: IncomingButtonState[] }) => {
+      isRoundOpenRef.current = false;
       const normalizedButtons = normalizeButtons(data?.buttons);
       if (normalizedButtons) {
         setButtons(normalizedButtons);
@@ -133,6 +135,7 @@ export function GamePlayScreen() {
     });
 
     socket.on("session.completed", (data: any) => {
+      isRoundOpenRef.current = false;
       const normalizedButtons = normalizeButtons(data?.buttons as IncomingButtonState[] | undefined);
       if (normalizedButtons) {
         setButtons(normalizedButtons);
@@ -163,27 +166,45 @@ export function GamePlayScreen() {
   const handleButtonClick = useCallback(
     async (buttonId: number) => {
       if (clickedThisRound) return;
+      if (!isRoundOpenRef.current || roundRef.current <= 0) return;
+
+      const currentButtons = useGameStore.getState().buttons;
+      const clickedButton = currentButtons.find((button) => button.id === buttonId);
+      if (!clickedButton || clickedButton.color !== "green") {
+        return;
+      }
+
       setClickedThisRound(true);
 
       const clickedAt = new Date().toISOString();
-      const reactionMs = Date.now() - greenTimestamp.current;
-      const rating = getReactionRating(reactionMs);
-      setFeedback(rating);
-
-      const newRound: SessionRound = { roundNumber: roundRef.current, reactionTimeMs: reactionMs };
-      addRound(newRound);
 
       try {
-        await api.submitReaction({
+        const response = await api.submitReaction({
           uid,
           roundNumber: roundRef.current,
           clickedAt,
         });
-      } catch {
-        // Offline — reaction already recorded locally
+
+        const reactionMs = response.reactionTimeMs;
+        const rating = getReactionRating(reactionMs);
+        setFeedback(rating);
+
+        const newRound: SessionRound = {
+          roundNumber: response.roundNumber ?? roundRef.current,
+          reactionTimeMs: reactionMs,
+        };
+        addRound(newRound);
+      } catch (error) {
+        setClickedThisRound(false);
+        setFeedback(null);
+        setStatus(
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : "Reaction rejected."
+        );
       }
     },
-    [clickedThisRound, uid, setClickedThisRound, setFeedback, addRound]
+    [clickedThisRound, uid, setClickedThisRound, setFeedback, setStatus, addRound]
   );
 
   const totalTime = rounds.reduce((sum, r) => sum + (r.reactionTimeMs ?? 0), 0);
