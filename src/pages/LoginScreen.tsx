@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "@/services/api";
+import { useGameStore } from "@/store/gameStore";
 import { Zap } from "lucide-react";
 
-interface Props {
-  onLogin: (uid: string) => void;
-}
-
-export function LoginScreen({ onLogin }: Props) {
+export function LoginScreen() {
   const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { setUid, setScreen } = useGameStore();
 
   const handleJoin = async () => {
     setLoading(true);
@@ -18,12 +16,14 @@ export function LoginScreen({ onLogin }: Props) {
     try {
       const { uid } = await api.login(nickname || "Player");
       localStorage.setItem("uid", uid);
-      onLogin(uid);
+      setUid(uid);
+      setScreen("game");
     } catch {
       setError("Could not connect to server. Using offline mode.");
       const offlineUid = `offline-${Date.now()}`;
       localStorage.setItem("uid", offlineUid);
-      onLogin(offlineUid);
+      setUid(offlineUid);
+      setScreen("game");
     } finally {
       setLoading(false);
     }

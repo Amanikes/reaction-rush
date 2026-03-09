@@ -11,12 +11,12 @@ export interface SessionRound {
 }
 
 export interface SessionState {
-  sessionId: string;
   status: "waiting" | "active" | "completed";
   currentRound: number;
   totalRounds: number;
   rounds: SessionRound[];
   players: PlayerInfo[];
+  buttons?: ButtonState[];
 }
 
 export interface PlayerInfo {
@@ -41,7 +41,18 @@ export interface LoginResponse {
   uid: string;
 }
 
-export type GameScreen = "login" | "join" | "play" | "completed";
+export interface CreateSessionRequest {
+  startAt: string;
+  durationSeconds: number;
+}
+
+export interface AdminSessionResults {
+  players: PlayerInfo[];
+  rounds: SessionRound[];
+  status: string;
+}
+
+export type GameScreen = "login" | "game" | "completed" | "admin";
 
 export interface ReactionFeedback {
   timeMs: number;

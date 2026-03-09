@@ -30,7 +30,7 @@ export function disconnectSocket(): void {
   }
 }
 
-export function joinSession(sessionId: string): void {
+export function joinSession(): void {
   const s = getSocket();
-  s.emit("session.join", { sessionId });
+  s.emit("session.join", {});
 }
