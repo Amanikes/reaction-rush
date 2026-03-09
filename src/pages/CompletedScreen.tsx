@@ -3,8 +3,8 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { Trophy } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 
-function sortableTotal(totalReactionTime: number): number {
-  return Number.isFinite(totalReactionTime) && totalReactionTime >= 0
+function sortableTotal(totalReactionTime: number | null): number {
+  return totalReactionTime !== null && Number.isFinite(totalReactionTime) && totalReactionTime >= 0
     ? totalReactionTime
     : Number.POSITIVE_INFINITY;
 }
@@ -13,11 +13,16 @@ export function CompletedScreen() {
   const { rounds, completedPlayers, uid, resetGame } = useGameStore();
 
   const totalTime = rounds.reduce((sum, r) => sum + (r.reactionTimeMs ?? 0), 0);
-  const winner = completedPlayers.length > 0
-    ? [...completedPlayers].sort(
-        (a, b) => sortableTotal(a.totalReactionTime) - sortableTotal(b.totalReactionTime)
-      )[0]
-    : null;
+  const winner =
+    completedPlayers.length > 0
+      ? [...completedPlayers]
+          .sort(
+            (a, b) =>
+              sortableTotal(a.totalReactionTime) -
+              sortableTotal(b.totalReactionTime)
+          )
+          .find((player) => player.totalReactionTime !== null) ?? null
+      : null;
   const isWinner = winner?.uid === uid;
 
   return (

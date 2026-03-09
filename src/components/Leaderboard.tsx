@@ -13,10 +13,17 @@ const rowColors = [
   "border-game-bronze/30 bg-game-bronze/5",
 ];
 
-function sortableTotal(totalReactionTime: number): number {
-  return Number.isFinite(totalReactionTime) && totalReactionTime >= 0
+function sortableTotal(totalReactionTime: number | null): number {
+  return totalReactionTime !== null && Number.isFinite(totalReactionTime) && totalReactionTime >= 0
     ? totalReactionTime
     : Number.POSITIVE_INFINITY;
+}
+
+function formatTotal(totalReactionTime: number | null): string {
+  if (totalReactionTime === null || !Number.isFinite(totalReactionTime)) {
+    return "Incomplete";
+  }
+  return `${(totalReactionTime / 1000).toFixed(3)}s`;
 }
 
 export function Leaderboard({ players, currentUid }: Props) {
@@ -49,7 +56,7 @@ export function Leaderboard({ players, currentUid }: Props) {
             </span>
           </div>
           <span className="font-mono-game text-sm text-muted-foreground">
-            {(player.totalReactionTime / 1000).toFixed(3)}s
+            {formatTotal(player.totalReactionTime)}
           </span>
         </motion.div>
       ))}

@@ -5,6 +5,13 @@ import { useGameStore } from "@/store/gameStore";
 import { Settings, Trophy, ArrowLeft } from "lucide-react";
 import type { AdminSessionResults } from "@/types/game";
 
+function formatTotal(totalReactionTime: number | null): string {
+  if (totalReactionTime === null || !Number.isFinite(totalReactionTime)) {
+    return "Incomplete";
+  }
+  return `${(totalReactionTime / 1000).toFixed(3)}s`;
+}
+
 export function AdminScreen() {
   const { setScreen } = useGameStore();
   const [adminKey, setAdminKey] = useState(
@@ -57,7 +64,9 @@ export function AdminScreen() {
       const data = await api.getSessionResults(trimmedKey);
       setResults(data);
       if (!data.players || data.players.length === 0) {
-        setResultsMsg("No completed player results yet.");
+        setResultsMsg("No player reactions yet.");
+      } else if (data.players.every((player) => player.totalReactionTime === null)) {
+        setResultsMsg("No completed runs yet. Showing partial progress.");
       }
     } catch {
       setResults(null);
@@ -179,7 +188,7 @@ export function AdminScreen() {
                     <span className="font-medium text-foreground">{player.nickname}</span>
                   </div>
                   <span className="font-mono-game text-sm text-muted-foreground">
-                    {(player.totalReactionTime / 1000).toFixed(3)}s
+                    {formatTotal(player.totalReactionTime)}
                   </span>
                 </div>
               ))}

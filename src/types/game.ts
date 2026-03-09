@@ -22,7 +22,7 @@ export interface SessionState {
 export interface PlayerInfo {
   uid: string;
   nickname: string;
-  totalReactionTime: number;
+  totalReactionTime: number | null;
   rounds: SessionRound[];
 }
 

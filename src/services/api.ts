@@ -99,38 +99,22 @@ export const api = {
     }).then((raw) => {
       const players = raw.players
         ? raw.players
-            .map((entry) => {
-              const totalReactionTime = toValidMs(entry.totalReactionTime);
-              if (totalReactionTime === null) {
-                return null;
-              }
-
-              return {
-                uid: entry.uid,
-                nickname: entry.nickname ?? entry.uid,
-                totalReactionTime,
-                rounds: entry.rounds ?? [],
-              };
-            })
-            .filter((entry): entry is PlayerInfo => entry !== null)
+            .map((entry) => ({
+              uid: entry.uid,
+              nickname: entry.nickname ?? entry.uid,
+              totalReactionTime: toValidMs(entry.totalReactionTime),
+              rounds: entry.rounds ?? [],
+            }))
         : (raw.standings ?? [])
-            .map((entry) => {
-              const totalReactionTime = toValidMs(entry.totalReactionTimeMs);
-              if (totalReactionTime === null) {
-                return null;
-              }
-
-              return {
-                uid: entry.uid,
-                nickname: entry.nickname ?? entry.uid,
-                totalReactionTime,
-                rounds: entry.rounds.map((round) => ({
-                  roundNumber: round.roundNumber,
-                  reactionTimeMs: round.reactionTimeMs,
-                })),
-              };
-            })
-            .filter((entry): entry is PlayerInfo => entry !== null);
+            .map((entry) => ({
+              uid: entry.uid,
+              nickname: entry.nickname ?? entry.uid,
+              totalReactionTime: toValidMs(entry.totalReactionTimeMs),
+              rounds: entry.rounds.map((round) => ({
+                roundNumber: round.roundNumber,
+                reactionTimeMs: round.reactionTimeMs,
+              })),
+            }));
 
       return {
         status: raw.status ?? "unknown",
