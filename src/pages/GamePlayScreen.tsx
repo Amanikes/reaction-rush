@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { GameButton } from "@/components/GameButton";
 import { ReactionFeedbackDisplay, getReactionRating } from "@/components/ReactionFeedback";
@@ -6,15 +6,9 @@ import { RoundIndicator } from "@/components/RoundIndicator";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { api } from "@/services/api";
 import { connectSocket, joinSession, disconnectSocket } from "@/services/socket";
-import type { ButtonState, ReactionFeedback, SessionRound } from "@/types/game";
+import { useGameStore } from "@/store/gameStore";
+import type { SessionRound } from "@/types/game";
 
-interface Props {
-  sessionId: string;
-  uid: string;
-  onComplete: (rounds: SessionRound[], players: any[]) => void;
-}
-
-// Green beep sound
 function playGreenSound() {
   try {
     const ctx = new AudioContext();
@@ -33,28 +27,37 @@ function playGreenSound() {
   }
 }
 
-export function GamePlayScreen({ sessionId, uid, onComplete }: Props) {
-  const [buttons, setButtons] = useState<ButtonState[]>([
-    { id: 0, color: "red" },
-    { id: 1, color: "red" },
-    { id: 2, color: "red" },
-  ]);
-  const [currentRound, setCurrentRound] = useState(0);
-  const [totalRounds, setTotalRounds] = useState(3);
-  const [feedback, setFeedback] = useState<ReactionFeedback | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [status, setStatus] = useState<string>("Waiting for game to start...");
-  const [clickedThisRound, setClickedThisRound] = useState(false);
-  const [rounds, setRounds] = useState<SessionRound[]>([]);
+export function GamePlayScreen() {
+  const {
+    uid, buttons, setButtons, currentRound, setCurrentRound,
+    totalRounds, setTotalRounds, feedback, setFeedback,
+    connected, setConnected, status, setStatus,
+    clickedThisRound, setClickedThisRound, rounds, addRound,
+    setCompletedPlayers, setScreen,
+  } = useGameStore();
+
   const greenTimestamp = useRef<number>(0);
   const roundRef = useRef(0);
 
   useEffect(() => {
+    // Fetch initial session state
+    api.getSessionState(uid).then((state) => {
+      if (state.totalRounds) setTotalRounds(state.totalRounds);
+      if (state.currentRound) setCurrentRound(state.currentRound);
+      if (state.buttons) {
+        setButtons(state.buttons);
+      }
+      if (state.status === "completed") {
+        setCompletedPlayers(state.players ?? []);
+        setScreen("completed");
+      }
+    }).catch(() => {});
+
     const socket = connectSocket();
 
     socket.on("connect", () => {
       setConnected(true);
-      joinSession(sessionId);
+      joinSession();
     });
 
     socket.on("disconnect", () => setConnected(false));
@@ -76,37 +79,38 @@ export function GamePlayScreen({ sessionId, uid, onComplete }: Props) {
       setClickedThisRound(false);
       setFeedback(null);
       setStatus("GO!");
-      setButtons((prev) =>
-        prev.map((b) => ({ ...b, color: b.id === data.buttonId ? "green" : "red" }))
+      setButtons(
+        buttons.map((b) => ({ ...b, color: b.id === data.buttonId ? "green" as const : "red" as const }))
       );
       playGreenSound();
     });
 
     socket.on("button.red", () => {
-      setButtons((prev) => prev.map((b) => ({ ...b, color: "red" })));
+      setButtons(buttons.map((b) => ({ ...b, color: "red" as const })));
       setStatus("Wait for green...");
     });
 
     socket.on("session.completed", (data: any) => {
-      setButtons((prev) => prev.map((b) => ({ ...b, color: "red" })));
-      onComplete(data?.rounds ?? rounds, data?.players ?? []);
+      setButtons(buttons.map((b) => ({ ...b, color: "red" as const })));
+      setCompletedPlayers(data?.players ?? []);
+      setScreen("completed");
     });
 
     socket.on("error", (data: any) => {
       setStatus(`Error: ${data?.message ?? "Unknown error"}`);
     });
 
-    // Reconnect logic
     socket.on("reconnect", () => {
       setConnected(true);
-      joinSession(sessionId);
-      api.getSessionState(sessionId, uid).catch(() => {});
+      joinSession();
+      api.getSessionState(uid).catch(() => {});
     });
 
     return () => {
       disconnectSocket();
     };
-  }, [sessionId, uid, onComplete, rounds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
 
   const handleButtonClick = useCallback(
     async (buttonId: number) => {
@@ -119,10 +123,10 @@ export function GamePlayScreen({ sessionId, uid, onComplete }: Props) {
       setFeedback(rating);
 
       const newRound: SessionRound = { roundNumber: roundRef.current, reactionTimeMs: reactionMs };
-      setRounds((prev) => [...prev, newRound]);
+      addRound(newRound);
 
       try {
-        await api.submitReaction(sessionId, {
+        await api.submitReaction({
           uid,
           roundNumber: roundRef.current,
           clickedAt,
@@ -131,7 +135,7 @@ export function GamePlayScreen({ sessionId, uid, onComplete }: Props) {
         // Offline — reaction already recorded locally
       }
     },
-    [clickedThisRound, sessionId, uid]
+    [clickedThisRound, uid, setClickedThisRound, setFeedback, addRound]
   );
 
   const totalTime = rounds.reduce((sum, r) => sum + (r.reactionTimeMs ?? 0), 0);
@@ -146,9 +150,9 @@ export function GamePlayScreen({ sessionId, uid, onComplete }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-display text-xs uppercase tracking-widest text-muted-foreground">
-            Session
+            Reaction Game
           </p>
-          <p className="font-mono-game text-sm text-foreground">{sessionId}</p>
+          <p className="font-mono-game text-sm text-foreground">UID: {uid.slice(0, 8)}…</p>
         </div>
         <ConnectionStatus connected={connected} />
       </div>

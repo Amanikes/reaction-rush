@@ -1,58 +1,31 @@
-import { useState, useCallback } from "react";
 import { LoginScreen } from "./LoginScreen";
-import { JoinSessionScreen } from "./JoinSessionScreen";
 import { GamePlayScreen } from "./GamePlayScreen";
 import { CompletedScreen } from "./CompletedScreen";
-import type { GameScreen, SessionRound, PlayerInfo } from "@/types/game";
+import { AdminScreen } from "./AdminScreen";
+import { useGameStore } from "@/store/gameStore";
+import { Settings } from "lucide-react";
 
 const Index = () => {
-  const [screen, setScreen] = useState<GameScreen>(() => {
-    return localStorage.getItem("uid") ? "join" : "login";
-  });
-  const [uid, setUid] = useState(() => localStorage.getItem("uid") ?? "");
-  const [sessionId, setSessionId] = useState("");
-  const [completedRounds, setCompletedRounds] = useState<SessionRound[]>([]);
-  const [players, setPlayers] = useState<PlayerInfo[]>([]);
-
-  const handleLogin = useCallback((newUid: string) => {
-    setUid(newUid);
-    setScreen("join");
-  }, []);
-
-  const handleJoinSession = useCallback((id: string) => {
-    setSessionId(id);
-    setScreen("play");
-  }, []);
-
-  const handleComplete = useCallback((rounds: SessionRound[], playerList: PlayerInfo[]) => {
-    setCompletedRounds(rounds);
-    setPlayers(playerList);
-    setScreen("completed");
-  }, []);
-
-  const handlePlayAgain = useCallback(() => {
-    setSessionId("");
-    setCompletedRounds([]);
-    setPlayers([]);
-    setScreen("join");
-  }, []);
+  const { screen, setScreen } = useGameStore();
 
   return (
-    <div className="min-h-screen bg-background bg-grid-pattern flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background bg-grid-pattern flex items-center justify-center p-4 relative">
+      {/* Admin toggle */}
+      {screen !== "admin" && (
+        <button
+          onClick={() => setScreen("admin")}
+          className="absolute top-4 right-4 p-2 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Admin panel"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+      )}
+
       <div className="flex flex-col items-center w-full animate-fade-in">
-        {screen === "login" && <LoginScreen onLogin={handleLogin} />}
-        {screen === "join" && <JoinSessionScreen onJoin={handleJoinSession} />}
-        {screen === "play" && (
-          <GamePlayScreen sessionId={sessionId} uid={uid} onComplete={handleComplete} />
-        )}
-        {screen === "completed" && (
-          <CompletedScreen
-            rounds={completedRounds}
-            players={players}
-            uid={uid}
-            onPlayAgain={handlePlayAgain}
-          />
-        )}
+        {screen === "login" && <LoginScreen />}
+        {screen === "game" && <GamePlayScreen />}
+        {screen === "completed" && <CompletedScreen />}
+        {screen === "admin" && <AdminScreen />}
       </div>
     </div>
   );

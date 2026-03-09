@@ -1,19 +1,14 @@
 import { motion } from "framer-motion";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Trophy } from "lucide-react";
-import type { SessionRound, PlayerInfo } from "@/types/game";
+import { useGameStore } from "@/store/gameStore";
 
-interface Props {
-  rounds: SessionRound[];
-  players: PlayerInfo[];
-  uid: string;
-  onPlayAgain: () => void;
-}
+export function CompletedScreen() {
+  const { rounds, completedPlayers, uid, resetGame } = useGameStore();
 
-export function CompletedScreen({ rounds, players, uid, onPlayAgain }: Props) {
   const totalTime = rounds.reduce((sum, r) => sum + (r.reactionTimeMs ?? 0), 0);
-  const winner = players.length > 0
-    ? [...players].sort((a, b) => a.totalReactionTime - b.totalReactionTime)[0]
+  const winner = completedPlayers.length > 0
+    ? [...completedPlayers].sort((a, b) => a.totalReactionTime - b.totalReactionTime)[0]
     : null;
   const isWinner = winner?.uid === uid;
 
@@ -37,7 +32,6 @@ export function CompletedScreen({ rounds, players, uid, onPlayAgain }: Props) {
         )}
       </div>
 
-      {/* Your results */}
       <div className="game-card p-6 space-y-3">
         <h3 className="font-display text-xs uppercase tracking-widest text-muted-foreground">
           Your Results
@@ -60,10 +54,10 @@ export function CompletedScreen({ rounds, players, uid, onPlayAgain }: Props) {
         </div>
       </div>
 
-      {players.length > 0 && <Leaderboard players={players} currentUid={uid} />}
+      {completedPlayers.length > 0 && <Leaderboard players={completedPlayers} currentUid={uid} />}
 
       <button
-        onClick={onPlayAgain}
+        onClick={resetGame}
         className="w-full rounded-lg bg-secondary py-3 font-display text-sm font-bold uppercase tracking-widest text-secondary-foreground transition-all hover:bg-secondary/80"
       >
         Play Again
