@@ -1,5 +1,7 @@
 import type {
+  PlayerInfo,
   LoginResponse,
+  SessionRound,
   SessionState,
   SubmitReactionRequest,
   SubmitReactionResponse,
@@ -7,8 +9,30 @@ import type {
   AdminSessionResults,
 } from "@/types/game";
 
-const API_BASE = "http://localhost:3000";
-const ADMIN_KEY = "dev-admin-key";
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
+
+type RawStanding = {
+  uid: string;
+  nickname: string | null;
+  totalReactionTimeMs: number | null;
+  rounds: Array<{ roundNumber: number; reactionTimeMs: number | null }>;
+};
+
+type RawAdminResults = {
+  status?: string;
+  rounds?: SessionRound[];
+  players?: PlayerInfo[];
+  standings?: RawStanding[];
+};
+
+function getAdminHeaders(adminKey: string): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    "x-admin-key": adminKey,
+  };
+}
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
@@ -38,23 +62,37 @@ export const api = {
     });
   },
 
-  createSession(data: CreateSessionRequest): Promise<any> {
+  createSession(data: CreateSessionRequest, adminKey: string): Promise<any> {
     return request("/admin/sessions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": ADMIN_KEY,
-      },
+      headers: getAdminHeaders(adminKey),
       body: JSON.stringify(data),
     });
   },
 
-  getSessionResults(): Promise<AdminSessionResults> {
-    return request("/admin/sessions/results", {
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-key": ADMIN_KEY,
-      },
+  getSessionResults(adminKey: string): Promise<AdminSessionResults> {
+    return request<RawAdminResults>("/admin/sessions/results", {
+      headers: getAdminHeaders(adminKey),
+    }).then((raw) => {
+      const players = raw.players
+        ? raw.players
+        : (raw.standings ?? [])
+            .filter((entry) => entry.totalReactionTimeMs !== null)
+            .map((entry) => ({
+              uid: entry.uid,
+              nickname: entry.nickname ?? entry.uid,
+              totalReactionTime: entry.totalReactionTimeMs ?? 0,
+              rounds: entry.rounds.map((round) => ({
+                roundNumber: round.roundNumber,
+                reactionTimeMs: round.reactionTimeMs,
+              })),
+            }));
+
+      return {
+        status: raw.status ?? "unknown",
+        rounds: raw.rounds ?? [],
+        players,
+      };
     });
   },
 };

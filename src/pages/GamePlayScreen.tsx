@@ -7,7 +7,13 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { api } from "@/services/api";
 import { connectSocket, joinSession, disconnectSocket } from "@/services/socket";
 import { useGameStore } from "@/store/gameStore";
-import type { SessionRound } from "@/types/game";
+import type { ButtonState, SessionRound } from "@/types/game";
+
+type IncomingButtonState = {
+  id?: number;
+  buttonIndex?: number;
+  color?: "red" | "green";
+};
 
 function playGreenSound() {
   try {
@@ -39,13 +45,30 @@ export function GamePlayScreen() {
   const greenTimestamp = useRef<number>(0);
   const roundRef = useRef(0);
 
+  const normalizeButtons = useCallback(
+    (items: IncomingButtonState[] | undefined): ButtonState[] | undefined => {
+      if (!items) return undefined;
+      return items.map((item, index) => ({
+        id:
+          typeof item.id === "number"
+            ? item.id
+            : typeof item.buttonIndex === "number"
+              ? item.buttonIndex - 1
+              : index,
+        color: item.color === "green" ? "green" : "red",
+      }));
+    },
+    []
+  );
+
   useEffect(() => {
     // Fetch initial session state
     api.getSessionState(uid).then((state) => {
       if (state.totalRounds) setTotalRounds(state.totalRounds);
       if (state.currentRound) setCurrentRound(state.currentRound);
-      if (state.buttons) {
-        setButtons(state.buttons);
+      const normalizedButtons = normalizeButtons(state.buttons as IncomingButtonState[] | undefined);
+      if (normalizedButtons) {
+        setButtons(normalizedButtons);
       }
       if (state.status === "completed") {
         setCompletedPlayers(state.players ?? []);
@@ -67,31 +90,56 @@ export function GamePlayScreen() {
       if (data?.totalRounds) setTotalRounds(data.totalRounds);
     });
 
-    socket.on("session.started", () => {
+    socket.on("session.started", (data: { buttons?: IncomingButtonState[] }) => {
       setStatus("Get ready!");
       setCurrentRound(0);
+      const normalizedButtons = normalizeButtons(data?.buttons);
+      if (normalizedButtons) {
+        setButtons(normalizedButtons);
+      }
     });
 
-    socket.on("button.green", (data: { buttonId: number; roundNumber: number }) => {
+    socket.on("button.green", (data: { buttonId: number; roundNumber: number; buttons?: IncomingButtonState[] }) => {
       greenTimestamp.current = Date.now();
       roundRef.current = data.roundNumber;
       setCurrentRound(data.roundNumber);
       setClickedThisRound(false);
       setFeedback(null);
       setStatus("GO!");
-      setButtons(
-        buttons.map((b) => ({ ...b, color: b.id === data.buttonId ? "green" as const : "red" as const }))
-      );
+      const normalizedButtons = normalizeButtons(data?.buttons);
+      if (normalizedButtons) {
+        setButtons(normalizedButtons);
+      } else {
+        const latestButtons = useGameStore.getState().buttons;
+        setButtons(
+          latestButtons.map((b) => ({
+            ...b,
+            color: b.id === data.buttonId ? ("green" as const) : ("red" as const),
+          }))
+        );
+      }
       playGreenSound();
     });
 
-    socket.on("button.red", () => {
-      setButtons(buttons.map((b) => ({ ...b, color: "red" as const })));
+    socket.on("button.red", (data: { buttons?: IncomingButtonState[] }) => {
+      const normalizedButtons = normalizeButtons(data?.buttons);
+      if (normalizedButtons) {
+        setButtons(normalizedButtons);
+      } else {
+        const latestButtons = useGameStore.getState().buttons;
+        setButtons(latestButtons.map((b) => ({ ...b, color: "red" as const })));
+      }
       setStatus("Wait for green...");
     });
 
     socket.on("session.completed", (data: any) => {
-      setButtons(buttons.map((b) => ({ ...b, color: "red" as const })));
+      const normalizedButtons = normalizeButtons(data?.buttons as IncomingButtonState[] | undefined);
+      if (normalizedButtons) {
+        setButtons(normalizedButtons);
+      } else {
+        const latestButtons = useGameStore.getState().buttons;
+        setButtons(latestButtons.map((b) => ({ ...b, color: "red" as const })));
+      }
       setCompletedPlayers(data?.players ?? []);
       setScreen("completed");
     });
@@ -110,7 +158,7 @@ export function GamePlayScreen() {
       disconnectSocket();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
+  }, [uid, normalizeButtons, setButtons, setCompletedPlayers, setConnected, setCurrentRound, setFeedback, setScreen, setStatus, setTotalRounds, setClickedThisRound]);
 
   const handleButtonClick = useCallback(
     async (buttonId: number) => {

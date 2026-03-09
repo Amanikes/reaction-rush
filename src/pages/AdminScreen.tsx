@@ -7,34 +7,61 @@ import type { AdminSessionResults } from "@/types/game";
 
 export function AdminScreen() {
   const { setScreen } = useGameStore();
+  const [adminKey, setAdminKey] = useState(
+    () => localStorage.getItem("admin_api_key") ?? "",
+  );
   const [durationSeconds, setDurationSeconds] = useState(30);
   const [startDelay, setStartDelay] = useState(5);
   const [creating, setCreating] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
+  const [resultsMsg, setResultsMsg] = useState("");
   const [results, setResults] = useState<AdminSessionResults | null>(null);
   const [loadingResults, setLoadingResults] = useState(false);
 
+  const updateAdminKey = (value: string) => {
+    setAdminKey(value);
+    localStorage.setItem("admin_api_key", value);
+  };
+
   const handleCreate = async () => {
+    const trimmedKey = adminKey.trim();
+    if (!trimmedKey) {
+      setCreateMsg("Enter an admin key first.");
+      return;
+    }
+
     setCreating(true);
     setCreateMsg("");
     try {
       const startAt = new Date(Date.now() + startDelay * 1000).toISOString();
-      await api.createSession({ startAt, durationSeconds });
+      await api.createSession({ startAt, durationSeconds }, trimmedKey);
       setCreateMsg("Session created successfully!");
     } catch {
-      setCreateMsg("Failed to create session.");
+      setCreateMsg("Failed to create session. Check your admin key.");
     } finally {
       setCreating(false);
     }
   };
 
   const handleFetchResults = async () => {
+    const trimmedKey = adminKey.trim();
+    if (!trimmedKey) {
+      setResults(null);
+      setResultsMsg("Enter an admin key first.");
+      return;
+    }
+
     setLoadingResults(true);
+    setResultsMsg("");
     try {
-      const data = await api.getSessionResults();
+      const data = await api.getSessionResults(trimmedKey);
       setResults(data);
+      if (!data.players || data.players.length === 0) {
+        setResultsMsg("No completed player results yet.");
+      }
     } catch {
       setResults(null);
+      setResultsMsg("Failed to fetch results. Check your admin key.");
     } finally {
       setLoadingResults(false);
     }
@@ -60,6 +87,19 @@ export function AdminScreen() {
             <Settings className="w-5 h-5 text-accent" />
           </div>
           <h2 className="font-display text-lg font-bold">Create Session</h2>
+        </div>
+
+        <div>
+          <label className="font-mono-game text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+            Admin Key
+          </label>
+          <input
+            type="password"
+            value={adminKey}
+            onChange={(e) => updateAdminKey(e.target.value)}
+            placeholder="Enter x-admin-key value"
+            className="w-full rounded-lg bg-input border border-border px-4 py-3 text-foreground font-mono-game focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -120,6 +160,10 @@ export function AdminScreen() {
         >
           {loadingResults ? "Loading..." : "Fetch Results"}
         </button>
+
+        {resultsMsg && (
+          <p className="font-mono-game text-sm text-muted-foreground">{resultsMsg}</p>
+        )}
 
         {results && results.players && (
           <div className="space-y-2">

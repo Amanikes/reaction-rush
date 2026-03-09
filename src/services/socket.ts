@@ -1,6 +1,8 @@
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:3000/game";
+const SOCKET_URL = (
+  import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3000/game"
+).replace(/\/$/, "");
 
 let socket: Socket | null = null;
 
