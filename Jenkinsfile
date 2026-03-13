@@ -1,42 +1,53 @@
+def gv
 pipeline {
     agent any
-    parameters{
-        choice (name: 'Version', choices: ['1.0.0', '1.1.0', '1.2.0'], description: 'Select the version to build')
+    parameters {
+        choice(name: 'Version', choices: ['1.0.0', '1.1.0', '1.2.0'], description: 'Select the version to build')
         booleanParam(name: 'executeTests', defaultValue: true, description: 'Run tests after building?')
     }
 
     environment {
-     NEW_VERSION  = "1.3.0"
-     SERVER_CREDENTIALS = credentials('server-credentials')
+        NEW_VERSION  = '1.3.0'
+        SERVER_CREDENTIALS = credentials('server-credentials')
     }
-    stages{
-        stage("build"){
-            steps{
-                echo 'Building the application...'
-                echo "building version ${NEW_VERSION}..."
+    stages {
+        stage('init') {
+            steps {
+                script {
+                    gv = load 'script.groovy'
+                }
             }
         }
-        stage("test"){
-            
+        stage('build') {
+            steps {
+                script {
+                    gv.buildApp()
+                }
+            }
+        }
+        stage('test') {
             when {
                 expression {
                     params.executeTests
                 }
             }
-            steps{
-                echo 'Running tests...'
+            steps {
+                script {
+                    gv.testApp()
+                }
             }
         }
-        stage("deploy"){
-            steps{
-                echo 'Deploying the application...'
-                echo "Deploying version ${NEW_VERSION} to the server with credentials ${SERVER_CREDENTIALS}..."
-            }}
-
+        stage('deploy') {
+            steps {
+                script {
+                    gv.deployApp()
+                }
+            }
+        }
     }
-    post{
-        always{
+    post {
+        always {
             echo 'Cleaning up...'
         }
-    }   
+    }
 }
